@@ -1,25 +1,11 @@
-# Template Basic
+# Renewables Analysis
 
-A comprehensive Python project template for Eagle Rock Analytics with modern development practices, code quality tools, and CI/CD workflows.
+A collection of tools for performing analysis on the data generated in [this repository](https://github.com/Eagle-Rock-Analytics/renewable-profiles)
 
-## Features
-
-- 🐍 **Python 3.12+** support
-- 📦 **Modern packaging** with `pyproject.toml`
-- 🔧 **Pre-commit hooks** for code quality and security
-- 🚀 **GitHub Actions** CI/CD workflows
-- 🧪 **Testing** with pytest and coverage reporting
-- 📊 **Code coverage** with codecov integration
-- 🔒 **Security** scanning for API keys and vulnerabilities
-- 📝 **Code formatting** with Black, Ruff, and isort
-- 📋 **Issue and PR templates**
-- 📚 **Structured project layout**
 
 ## Project Structure
-
 ```
-template-basic/
-├── configure_project.sh        # Project configuration tool
+renewables-analysis/
 ├── environment.yml             # Conda/mamba environment definition
 ├── .github/                    # GitHub configuration files
 │   ├── ISSUE_TEMPLATE/         # Issue templates
@@ -40,48 +26,16 @@ template-basic/
     └── test_example.py         # Example tests
 ```
 
-## Quick Start
 
-### 1. Create Your Project from This Template
 
-1. Click "Use this template" on GitHub
-2. Name your new repository
-3. Clone your new repository:
-   ```bash
-   git clone https://github.com/Eagle-Rock-Analytics/your-new-project.git
-   cd your-new-project
-   ```
 
-### 2. Configure Your Project Name (Recommended)
-
-Use the provided script to update all project references to your new project name:
-
-```bash
-# Basic usage
-./configure_project.sh my-awesome-project
-
-# With backup (recommended)
-./configure_project.sh --backup my-awesome-project
-
-# Preview changes without modifying files
-./configure_project.sh --dry-run my-awesome-project
-
-# Restore from backups if needed
-./configure_project.sh --restore
-```
-
-**What this script does:**
-- Updates all references from `template-basic`/`template_basic` to your project name
-- Renames source directories to match
-- Updates imports in code and tests
-- Ensures consistency across all configuration files
 
 ### 3. Set Up Your Development Environment
 
 **Quick setup (recommended):**
 ```bash
 make setup  # Configure and install environment
-mamba activate template-basic
+mamba activate renewables-analysis
 make all    # Set up pre-commit tools
 ```
 
@@ -99,7 +53,7 @@ conda install mamba -n base -c conda-forge
 
 # Create and activate environment
 mamba env create -f environment.yml
-mamba activate template-basic
+mamba activate renewables-analysis
 
 # Install project in development mode
 pip install -e ".[dev,test]"
@@ -109,7 +63,7 @@ pip install -e ".[dev,test]"
 
 ```bash
 conda env create -f environment.yml
-conda activate template-basic
+conda activate renewables-analysis
 pip install -e ".[dev,test]"
 ```
 
@@ -242,7 +196,7 @@ mamba env update -f environment.yml
 mamba env list
 
 # Remove environment (start fresh)
-mamba env remove -n template-basic
+mamba env remove -n renewables-analysis
 ```
 
 ## CI/CD & GitHub Integration
@@ -318,7 +272,7 @@ pre-commit install
 
 **Environment conflicts:**
 ```bash
-mamba env remove -n template-basic
+mamba env remove -n renewables-analysis
 mamba env create -f environment.yml
 ```
 
@@ -332,24 +286,3 @@ pip install -e .
 # Switch to mamba for faster dependency resolution
 conda install mamba -n base -c conda-forge
 ```
-
-## Why This Template?
-
-This template follows modern Python best practices:
-
-- **`pyproject.toml`**: Standard for Python packaging (PEP 518)
-- **Pre-commit hooks**: Catch issues before they reach CI
-- **Ruff**: Fast, modern linting (replaces flake8, pylint, etc.)
-- **Pytest**: Industry standard testing framework
-- **GitHub Actions**: Integrated CI/CD
-- **Security scanning**: Automated vulnerability detection
-
-## Support
-
-- 📋 **Issues**: Check existing issues or create a new one
-- 📧 **Contact**: Reach out to the Eagle Rock Analytics development team
-- 📚 **Documentation**: See individual tool documentation for detailed usage
-
----
-
-**Happy coding! 🚀**
