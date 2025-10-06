@@ -3,7 +3,7 @@ requires = ["setuptools>=64", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "template-basic"
+name = "renewables-analysis"
 description = "A basic Python project template"
 authors = [
     {name = "Your Organization", email = "your-email@domain.com"},
