@@ -4,7 +4,7 @@ A collection of tools for performing analysis on the data generated in [this rep
 
 
 
-### 3. Set Up Your Development Environment
+### Set Up Your Development Environment
 
 **Quick setup (recommended):**
 ```bash
