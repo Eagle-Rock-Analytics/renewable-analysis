@@ -4,7 +4,7 @@ A collection of tools for performing analysis on the data generated in [this rep
 
 
 
-### Set Up Your Development Environment
+## Set Up Your Development Environment
 
 **Quick setup (recommended):**
 ```bash
@@ -49,12 +49,23 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -e ".[dev,test]"
 ```
 
+### Add climakitae
+
+After environment is created, add tools for loading climate data catalog from [climakitae](https://github.com/cal-adapt/climakitae/tree/main)
+
+With the environment active, run:
+```
+pip install https://github.com/cal-adapt/climakitae/archive/refs/tags/1.4.0.zip
+```
+
 ### 4. Initialize Pre-commit Hooks
 
 ```bash
 pre-commit install
 pre-commit run --all-files  # Optional: run on all existing files
 ```
+
+
 
 ## Development Workflow
 
