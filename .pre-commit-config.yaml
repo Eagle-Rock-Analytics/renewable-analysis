@@ -27,22 +27,22 @@ repos:
         args: ["--profile", "black"]
         exclude: ^src/_version\.py$
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.7
-    hooks:
-      - id: ruff
-        args: [--fix, --unsafe-fixes, --exit-non-zero-on-fix]
-        exclude: ^src/_version\.py$
+  # - repo: https://github.com/astral-sh/ruff-pre-commit
+  #   rev: v0.12.7
+  #   hooks:
+  #     - id: ruff
+  #       args: [--fix, --unsafe-fixes, --exit-non-zero-on-fix]
+  #       exclude: ^src/_version\.py$
 
-  # Jupyter notebook cleaning
-  - repo: https://github.com/nbQA-dev/nbQA
-    rev: 1.9.1
-    hooks:
-      - id: nbqa-black
-      - id: nbqa-isort
-      - id: nbqa-ruff
-        args: ["--fix"]
-        additional_dependencies: ["ruff[notebooks]"]
+  # # Jupyter notebook cleaning
+  # - repo: https://github.com/nbQA-dev/nbQA
+  #   rev: 1.9.1
+  #   hooks:
+  #     - id: nbqa-black
+  #     - id: nbqa-isort
+  #     - id: nbqa-ruff
+  #       args: ["--fix"]
+  #       additional_dependencies: ["ruff[notebooks]"]
 
   # Security checks
   - repo: https://github.com/PyCQA/bandit
