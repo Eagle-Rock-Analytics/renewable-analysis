@@ -51,5 +51,5 @@ dependencies:
     - jupyterlab==4.2.2 #JupyterLab computational environment
     - jupyterlab-execute-time==3.1.2 #Display cell timings in Jupyter Lab
     - notebook==7.2.1 #A web-based notebook environment for interactive computing
-    - shapely==1.8.1.post1 #Manipulation and analysis of geometric object
+    - shapely>=2.0.0 #Manipulation and analysis of geometric object
     - black==24.10.0
