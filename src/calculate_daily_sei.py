@@ -5,29 +5,7 @@ import xarray as xr
 from scipy.stats import norm
 from statsmodels.distributions.empirical_distribution import ECDF
 
-
-def get_ren_data_concat(resource, module, domain, variable, frequency, simulation):
-
-    # historical
-    path = f"s3://wfclimres/era/{resource}_{module}/{simulation}/historical/{frequency}/{variable}/{domain}/"
-    hist_ds = xr.open_zarr(path, storage_options={"anon": True})
-    hist_ds = hist_ds.convert_calendar("noleap")
-    path = f"s3://wfclimres/era/{resource}_{module}/{simulation}/ssp370/{frequency}/{variable}/{domain}/"
-    fut_ds = xr.open_zarr(path, storage_options={"anon": True})
-    fut_ds = fut_ds.convert_calendar("noleap")
-
-    # combine historical and future
-    ds = xr.concat([hist_ds, fut_ds], dim="time")
-    ds = ds.convert_calendar("noleap")
-
-    ds = ds[variable]
-    ds = ds.isel(
-        x=slice(10, -10), y=slice(10, -10)
-    )  # trim the edges to match the WRF AE domain
-
-    # This does not work well as a merge or a concat because of the time and gwl dimensions both being there. looking into this.
-    # comb_ds = xr.merge(gwl_list)
-    return ds
+from renewable_data_load import *
 
 
 def extract_window_samples(ds_reference, doy, window_size=60):
