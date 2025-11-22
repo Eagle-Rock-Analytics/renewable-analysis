@@ -1,4 +1,7 @@
 import argparse
+import gc
+import os
+import time
 
 import numpy as np
 import xarray as xr
@@ -159,10 +162,109 @@ def compute_sei_for_doy_parallel(ds_reference, ds_doy, doy, window_size=60):
     return sei
 
 
+def process_spatial_chunk(
+    ren_ds_chunk,
+    ds_reference_chunk,
+    simulation,
+    window_size,
+    chunk_x_idx,
+    chunk_y_idx,
+):
+    """
+    Process a single spatial chunk to compute SEI.
+
+    Parameters
+    ----------
+    ren_ds_chunk : xarray.Dataset
+        Spatial chunk of full dataset
+    ds_reference_chunk : xarray.Dataset
+        Spatial chunk of reference period
+    simulation : str
+        Simulation name
+    window_size : int
+        Window size for ECDF
+    chunk_x_idx : int
+        X chunk index
+    chunk_y_idx : int
+        Y chunk index
+
+    Returns
+    -------
+    drought_ds : xarray.Dataset
+        SEI results for this chunk
+    """
+    print(f"  Processing chunk (y={chunk_y_idx}, x={chunk_x_idx})...")
+
+    ## Reshape Future Data to (dayofyear, year, y, x)
+    ds_doy = ren_ds_chunk.copy(deep=True)
+
+    # Add temporal coordinates
+    ds_doy["dayofyear"] = ds_doy.time.dt.dayofyear
+    ds_doy["year"] = ds_doy.time.dt.year
+
+    # Reshape: time -> (dayofyear, year)
+    ds_doy = ds_doy.drop_vars("time").set_index(time=["dayofyear", "year"]).unstack()
+
+    # Remove 2014 if present (GCM artifact)
+    if simulation != "ERA5" and 2014 in ds_doy.year:
+        ds_doy = ds_doy.drop_sel(year=2014)
+
+    ## Compute SEI for Each Day-of-Year
+    # List to collect SEI for each day-of-year
+    sei_list = []
+    gen_list = []
+
+    # Process each day-of-year
+    for doy in range(1, 366):
+        # Get future generation data for this DOY
+        future_doy_data = ds_doy.sel(dayofyear=doy)
+
+        # Compute SEI for this DOY using parallelized apply_ufunc
+        sei_doy = compute_sei_for_doy_parallel(
+            ds_reference_chunk, future_doy_data, doy, window_size
+        )
+
+        # Add dayofyear coordinate
+        sei_doy = sei_doy.expand_dims(dayofyear=[doy])
+        gen_doy = future_doy_data.expand_dims(dayofyear=[doy])
+
+        sei_list.append(sei_doy)
+        gen_list.append(gen_doy)
+
+    # Concatenate all days-of-year
+    sei_full = xr.concat(sei_list, dim="dayofyear")
+    gen_full = xr.concat(gen_list, dim="dayofyear")
+
+    # Merge into final dataset
+    drought_ds = xr.Dataset({"gen": gen_full, "sei": sei_full})
+
+    # Compute to materialize results
+    drought_ds = drought_ds.compute()
+
+    # Add missing 2014 year if needed
+    if simulation != "ERA5":
+        synth = np.zeros(shape=[365, 1])
+        synth[:, :] = np.nan
+        fill_data = xr.Dataset(
+            data_vars={
+                "gen": (["dayofyear", "year"], synth),
+                "sei": (["dayofyear", "year"], synth),
+            },
+            coords={"year": [2014], "dayofyear": np.arange(1, 366, 1)},
+        )
+        drought_ds = xr.merge([fill_data, drought_ds])
+
+    # Add chunk indices as attributes
+    drought_ds.attrs["chunk_x_idx"] = chunk_x_idx
+    drought_ds.attrs["chunk_y_idx"] = chunk_y_idx
+
+    return drought_ds
+
+
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Calculate daily Standardized Energy Index (SEI) for renewable energy data."
+        description="Calculate daily Standardized Energy Index (SEI) for renewable energy data in spatial chunks."
     )
 
     parser.add_argument(
@@ -214,10 +316,16 @@ def parse_args():
         help="Window size in days for ECDF fitting (default: 60)",
     )
     parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=10,
+        help="Spatial chunk size for both x and y dimensions (default: 10)",
+    )
+    parser.add_argument(
         "--output-dir",
         type=str,
         default="../data/SEI",
-        help="Output directory for zarr files",
+        help="Output directory for NetCDF files",
     )
 
     return parser.parse_args()
@@ -237,9 +345,10 @@ def main():
     scenario = args.scenario
     reference_gwl = args.reference_gwl
     window_size = args.window_size
+    chunk_size = args.chunk_size
 
     print("=" * 60)
-    print("SEI Calculation Parameters:")
+    print("SEI Calculation Parameters (Chunked):")
     print("=" * 60)
     print(f"Resource: {resource}")
     print(f"Module: {module}")
@@ -250,6 +359,7 @@ def main():
     print(f"Scenario: {scenario}")
     print(f"Reference GWL: {reference_gwl}°C")
     print(f"Window size: {window_size} days")
+    print(f"Spatial chunk size: {chunk_size}x{chunk_size}")
     print("=" * 60)
 
     # Load data
@@ -258,12 +368,8 @@ def main():
         resource, module, domain, variable, frequency, simulation
     )
 
-    #### SUBSET FOR TESTING ####
-    # Uncomment the line below for testing with a small spatial subset
-    # ren_ds = ren_ds.isel(y=slice(222,226), x=slice(53,57))
-
-    print(f"Data shape: {ren_ds.sizes}")
-    print(f"Memory footprint: {ren_ds.nbytes / 1e9:.2f} GB")
+    print(f"Full data shape: {ren_ds.sizes}")
+    print(f"Total memory footprint: {ren_ds.nbytes / 1e9:.2f} GB")
 
     # Get bounds for reference GWL period
     print("\nDetermining reference period from GWL...")
@@ -275,113 +381,120 @@ def main():
     )
     print(f"Reference period (GWL {reference_gwl}°C): {start_year}-{end_year}")
 
-    # Extract reference periods
+    # Extract reference period (full spatial domain)
     print("\nExtracting reference period...")
     ds_reference = ren_ds.sel(time=slice(f"{start_year}", f"{end_year}"))
 
-    ## Reshape Future Data to (dayofyear, year, y, x)
-    print("Reshaping data to (dayofyear, year, y, x)...")
-    ds_doy = ren_ds.copy(deep=True)
+    # Determine chunk boundaries
+    ny = ren_ds.sizes["y"]
+    nx = ren_ds.sizes["x"]
 
-    # Add temporal coordinates
-    ds_doy["dayofyear"] = ds_doy.time.dt.dayofyear
-    ds_doy["year"] = ds_doy.time.dt.year
+    y_chunks = list(range(0, ny, chunk_size))
+    x_chunks = list(range(0, nx, chunk_size))
 
-    # Reshape: time -> (dayofyear, year)
-    ds_doy = ds_doy.drop_vars("time").set_index(time=["dayofyear", "year"]).unstack()
+    n_y_chunks = len(y_chunks)
+    n_x_chunks = len(x_chunks)
 
-    # Remove 2014 if present (GCM artifact)
-    if simulation != "ERA5" and 2014 in ds_doy.year:
-        ds_doy = ds_doy.drop_sel(year=2014)
-
-    print(f"Reshaped data: {ds_doy.sizes}")
-
-    ## Compute SEI for Each Day-of-Year
-    print("\nComputing SEI for each day-of-year...")
-    print("This may take several minutes...")
-
-    # List to collect SEI for each day-of-year
-    sei_list = []
-    gen_list = []
-
-    # Process each day-of-year
-    for doy in range(1, 366):
-        if doy % 50 == 0:
-            print(f"Processing day {doy}/365...")
-
-        # Get future generation data for this DOY
-        future_doy_data = ds_doy.sel(dayofyear=doy)
-
-        # Compute SEI for this DOY using parallelized apply_ufunc
-        sei_doy = compute_sei_for_doy_parallel(
-            ds_reference, future_doy_data, doy, window_size
-        )
-
-        # Add dayofyear coordinate
-        sei_doy = sei_doy.expand_dims(dayofyear=[doy])
-        gen_doy = future_doy_data.expand_dims(dayofyear=[doy])
-
-        sei_list.append(sei_doy)
-        gen_list.append(gen_doy)
-
-    print("Concatenating results...")
-
-    # Concatenate all days-of-year
-    sei_full = xr.concat(sei_list, dim="dayofyear")
-    gen_full = xr.concat(gen_list, dim="dayofyear")
-
-    # Merge into final dataset
-    drought_ds = xr.Dataset({"gen": gen_full, "sei": sei_full})
-
-    print("Computing final dataset (loading into memory)...")
-    drought_ds = drought_ds.compute()
-
-    # Add missing 2014 year if needed
-    if simulation != "ERA5":
-        print("Adding placeholder for missing year 2014...")
-        synth = np.zeros(shape=[365, 1])
-        synth[:, :] = np.nan
-        fill_data = xr.Dataset(
-            data_vars={
-                "gen": (["dayofyear", "year"], synth),
-                "sei": (["dayofyear", "year"], synth),
-            },
-            coords={"year": [2014], "dayofyear": np.arange(1, 366, 1)},
-        )
-        drought_ds = xr.merge([fill_data, drought_ds])
-
-    #### SAVE to zarr
-    output_path = f"{args.output_dir}/{resource}_{module}_{domain}_{variable}_daily_sei_{simulation}_{scenario}_gwl{reference_gwl}.zarr"
-
-    print("\nPreparing to save...")
-
-    # Remove encoding to avoid zarr version conflicts
-    for var in drought_ds.data_vars:
-        if "encoding" in drought_ds[var].attrs:
-            del drought_ds[var].attrs["encoding"]
-        drought_ds[var].encoding = {}
-
-    for coord in drought_ds.coords:
-        if "encoding" in drought_ds[coord].attrs:
-            del drought_ds[coord].attrs["encoding"]
-        drought_ds[coord].encoding = {}
-
-    # Add metadata
-    drought_ds.attrs["title"] = f"Standardized Energy Index - {resource} {module}"
-    drought_ds.attrs["simulation"] = simulation
-    drought_ds.attrs["scenario"] = scenario
-    drought_ds.attrs["reference_gwl"] = reference_gwl
-    drought_ds.attrs["reference_period"] = f"{start_year}-{end_year}"
-    drought_ds.attrs["window_size_days"] = window_size
-    drought_ds.attrs["method"] = (
-        "memory-efficient dynamic window extraction with apply_ufunc parallelization"
+    print(f"\nSpatial dimensions: y={ny}, x={nx}")
+    print(
+        f"Number of chunks: {n_y_chunks} (y) × {n_x_chunks} (x) = {n_y_chunks * n_x_chunks} total"
     )
 
-    print(f"Saving to: {output_path}")
-    drought_ds.to_zarr(output_path, mode="w")
-    print("Save complete!")
-    print("=" * 60)
-    print("SEI calculation finished successfully!")
+    # Create output directory if needed
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    # Process each spatial chunk
+    chunk_count = 0
+    total_chunks = n_y_chunks * n_x_chunks
+
+    for y_idx, y_start in enumerate(y_chunks):
+        y_end = min(y_start + chunk_size, ny)
+
+        for x_idx, x_start in enumerate(x_chunks):
+            x_end = min(x_start + chunk_size, nx)
+
+            chunk_count += 1
+
+            # Prepare output path with chunk indices
+            output_filename = (
+                f"{resource}_{module}_{domain}_{variable}_daily_sei_"
+                f"{simulation}_{scenario}_gwl{reference_gwl}_"
+                f"chunk_y{y_idx:03d}_x{x_idx:03d}.nc"
+            )
+            output_path = os.path.join(args.output_dir, output_filename)
+
+            # Check if chunk already exists
+            if os.path.exists(output_path):
+                print(f"\n{'=' * 60}")
+                print(
+                    f"Chunk {chunk_count}/{total_chunks}: y[{y_start}:{y_end}], x[{x_start}:{x_end}]"
+                )
+                print(f"SKIPPING - Already exists: {output_filename}")
+                print(f"{'=' * 60}")
+                continue
+
+            chunk_start_time = time.time()
+
+            print(f"\n{'=' * 60}")
+            print(
+                f"Chunk {chunk_count}/{total_chunks}: y[{y_start}:{y_end}], x[{x_start}:{x_end}]"
+            )
+            print(f"{'=' * 60}")
+
+            # Extract spatial chunk
+            ren_ds_chunk = ren_ds.isel(y=slice(y_start, y_end), x=slice(x_start, x_end))
+            ds_reference_chunk = ds_reference.isel(
+                y=slice(y_start, y_end), x=slice(x_start, x_end)
+            )
+
+            print(f"Chunk shape: {ren_ds_chunk.sizes}")
+            print(f"Chunk memory: {ren_ds_chunk.nbytes / 1e9:.2f} GB")
+
+            # Process chunk
+            drought_ds_chunk = process_spatial_chunk(
+                ren_ds_chunk,
+                ds_reference_chunk,
+                simulation,
+                window_size,
+                x_idx,
+                y_idx,
+            )
+
+            # Add global metadata
+            drought_ds_chunk.attrs["title"] = (
+                f"Standardized Energy Index - {resource} {module}"
+            )
+            drought_ds_chunk.attrs["simulation"] = simulation
+            drought_ds_chunk.attrs["scenario"] = scenario
+            drought_ds_chunk.attrs["reference_gwl"] = reference_gwl
+            drought_ds_chunk.attrs["reference_period"] = f"{start_year}-{end_year}"
+            drought_ds_chunk.attrs["window_size_days"] = window_size
+            drought_ds_chunk.attrs["method"] = (
+                "memory-efficient dynamic window extraction with apply_ufunc parallelization"
+            )
+            drought_ds_chunk.attrs["y_start"] = y_start
+            drought_ds_chunk.attrs["y_end"] = y_end
+            drought_ds_chunk.attrs["x_start"] = x_start
+            drought_ds_chunk.attrs["x_end"] = x_end
+
+            # Save chunk as NetCDF
+            print(f"Saving chunk to: {output_path}")
+            drought_ds_chunk.to_netcdf(output_path)
+
+            chunk_elapsed = time.time() - chunk_start_time
+            print(
+                f"Chunk {chunk_count}/{total_chunks} completed in {chunk_elapsed:.1f}s"
+            )
+
+            # Force cleanup to prevent memory accumulation
+            del drought_ds_chunk, ren_ds_chunk, ds_reference_chunk
+            gc.collect()
+            print(f"Memory cleanup complete")
+
+    print("\n" + "=" * 60)
+    print("All chunks processed successfully!")
+    print(f"Total chunks saved: {total_chunks}")
+    print(f"Output directory: {args.output_dir}")
     print("=" * 60)
 
 
