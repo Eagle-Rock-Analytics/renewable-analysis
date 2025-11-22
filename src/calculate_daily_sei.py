@@ -170,7 +170,7 @@ def parse_args():
     parser.add_argument(
         "--simulation",
         type=str,
-        default="ec-earth3",
+        default="miroc6",
         help="Climate simulation (e.g., ec-earth3, miroc6, mpi-esm1-2-hr)",
     )
     parser.add_argument(
