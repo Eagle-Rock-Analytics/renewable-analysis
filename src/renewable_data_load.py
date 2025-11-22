@@ -78,20 +78,46 @@ def get_ren_drought_data(
     return ds
 
 
-def get_ren_cf_data_gwl(resource, module, domain, variable, frequency, simulation, gwl):
+def get_ren_data_concat(resource, module, domain, variable, frequency, simulation):
+
+    # historical
+    path = f"s3://wfclimres/era/{resource}_{module}/{simulation}/historical/{frequency}/{variable}/{domain}/"
+    hist_ds = xr.open_zarr(path, storage_options={"anon": True})
+    hist_ds = hist_ds.convert_calendar("noleap")
+    path = f"s3://wfclimres/era/{resource}_{module}/{simulation}/ssp370/{frequency}/{variable}/{domain}/"
+    fut_ds = xr.open_zarr(path, storage_options={"anon": True})
+    fut_ds = fut_ds.convert_calendar("noleap")
+
+    # combine historical and future
+    ds = xr.concat([hist_ds, fut_ds], dim="time")
+    ds = ds.convert_calendar("noleap")
+
+    ds = ds[variable]
+    ds = ds.isel(
+        x=slice(10, -10), y=slice(10, -10)
+    )  # trim the edges to match the WRF AE domain
+
+    # This does not work well as a merge or a concat because of the time and gwl dimensions both being there. looking into this.
+    # comb_ds = xr.merge(gwl_list)
+    return ds
+
+
+def get_ren_data_gwl(resource, module, domain, variable, frequency, simulation, gwl):
     gwl_arr = np.array(gwl)
 
     # historical
     path = f"s3://wfclimres/era/{resource}_{module}/{simulation}/historical/{frequency}/{variable}/{domain}/"
     hist_ds = xr.open_zarr(path, storage_options={"anon": True})
-
+    hist_ds = hist_ds.convert_calendar("noleap")
     path = f"s3://wfclimres/era/{resource}_{module}/{simulation}/ssp370/{frequency}/{variable}/{domain}/"
     fut_ds = xr.open_zarr(path, storage_options={"anon": True})
+    fut_ds = fut_ds.convert_calendar("noleap")
 
     # combine historical and future
     ds = xr.concat([hist_ds, fut_ds], dim="time")
+    ds = ds.convert_calendar("noleap")
 
-    ds = ds["cf"]
+    ds = ds[variable]
     ds = ds.isel(
         x=slice(10, -10), y=slice(10, -10)
     )  # trim the edges to match the WRF AE domain
