@@ -7,6 +7,7 @@ src/_version.py
 
 # C extensions
 *.so
+*.png
 
 # Distribution / packaging
 .Python
