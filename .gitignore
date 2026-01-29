@@ -7,7 +7,10 @@ src/_version.py
 
 # C extensions
 *.so
+
+# Generated files
 *.png
+*.nc
 
 # Distribution / packaging
 .Python
