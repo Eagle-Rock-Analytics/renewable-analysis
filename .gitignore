@@ -230,3 +230,4 @@ models/
 *.h5
 *.pb
 .github/copilot-instructions.md
+.github/agents/a_new_agent_test.agent.md
