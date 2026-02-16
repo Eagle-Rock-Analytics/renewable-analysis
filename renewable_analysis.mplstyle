@@ -1,0 +1,55 @@
+## Matplotlib style sheet for renewable-analysis project
+## Usage: plt.style.use('renewable_analysis.mplstyle') or plt.style.use('./renewable_analysis.mplstyle')
+
+## Color cycle using model colors from lipari palette
+## Note: For explicit model coloring, use plotting_config.model_colors dict
+axes.prop_cycle : cycler('color', ['13385A', 'E37861', '785F72', 'CD685F'])
+
+## Figure settings
+figure.figsize      : 18, 12
+figure.dpi          : 100
+savefig.dpi         : 400
+savefig.bbox        : tight
+
+## Font sizes
+font.size           : 14
+axes.titlesize      : 16
+axes.labelsize      : 14
+xtick.labelsize     : 12
+ytick.labelsize     : 12
+legend.fontsize     : 12
+figure.titlesize    : 18
+
+## Grid settings
+axes.grid           : True
+grid.alpha          : 0.3
+grid.linestyle      : -
+grid.linewidth      : 0.8
+
+## Axes settings
+axes.linewidth      : 1.0
+axes.edgecolor      : 333333
+axes.labelcolor     : 333333
+axes.axisbelow      : True
+
+## Legend settings
+legend.frameon      : True
+legend.framealpha   : 0.9
+legend.fancybox     : False
+legend.edgecolor    : 0.8
+
+## Line settings
+lines.linewidth     : 1.5
+lines.markersize    : 8
+
+## Tick settings
+xtick.direction     : out
+ytick.direction     : out
+xtick.major.size    : 5
+ytick.major.size    : 5
+xtick.minor.size    : 3
+ytick.minor.size    : 3
+
+## Save settings
+savefig.format      : png
+savefig.transparent : False
