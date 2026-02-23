@@ -17,6 +17,7 @@ model_colors = {
 gwl_colors = {
     0.8: "#879FF5",  # Light blue for reference period (lipari-based)
     2.0: "#EC9B97",  # Light coral for future period (lipari-based)
+    3.0: "#E37861",  # Orange-red for higher future GWL (lipari-169)
 }
 
 # Marker styles for each model (useful for scatter plots)
