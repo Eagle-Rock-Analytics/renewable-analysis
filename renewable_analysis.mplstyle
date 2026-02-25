@@ -52,4 +52,4 @@ ytick.minor.size    : 3
 
 ## Save settings
 savefig.format      : png
-savefig.transparent : False
+savefig.transparent : True
