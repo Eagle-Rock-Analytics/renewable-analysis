@@ -1,10 +1,8 @@
-"""Template Basic Package.
+"""Renewable Analysis Package.
 
-A basic Python project template for Eagle Rock Analytics.
+Analysis toolkit for renewable energy data from climate simulations.
 """
 
 __version__ = "0.1.0"
 
-from .example import hello_world
-
-__all__ = ["hello_world"]
+__all__ = []
