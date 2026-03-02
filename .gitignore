@@ -11,6 +11,7 @@ src/_version.py
 # Generated files
 *.png
 *.nc
+*.html
 
 # Distribution / packaging
 .Python
