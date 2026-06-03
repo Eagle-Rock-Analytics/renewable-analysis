@@ -218,8 +218,7 @@ ehthumbs_vista.db
 bandit-report.json
 
 # Data files (add patterns for your data)
-data/
-*.csv
+data/drought_masks/*
 *.json
 *.xlsx
 *.parquet
@@ -232,3 +231,6 @@ models/
 *.pb
 .github/copilot-instructions.md
 .github/agents/a_new_agent_test.agent.md
+
+# Keep uncertainty analysis README local only
+notebooks/uncertainty_analysis/README.md
